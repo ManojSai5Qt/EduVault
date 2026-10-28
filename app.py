@@ -10,39 +10,39 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ---------- SLEEK DEVOPS TOP-NAV THEME (ZERO SIDEBAR, FULL RESPONSIVENESS) ----------
+# ---------- HIGH VISIBILITY DEVOPS THEME (ZERO GAPS, LARGE HEADERS, LUMINOUS CONTRAST) ----------
 st.markdown("""
 <style>
 :root { color-scheme: dark; }
 
-/* Global Obsidian Background */
+/* Global Obsidian Canvas */
 .stApp {
-  background-color: #0b0f19 !important;
+  background-color: #080c16 !important;
   color: #e2e8f0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Enable Full Natural Scrolling - Never Hide Scrollbars */
+/* Allow smooth scrolling without cutting off */
 html, body {
   overflow-x: auto !important;
   overflow-y: auto !important;
 }
 
-/* COMPLETELY HIDE THE LEFT SIDEBAR AS REQUESTED */
+/* Hide Left Sidebar Completely */
 [data-testid="stSidebar"] {
   display: none !important;
 }
 header[data-testid="stHeader"] {
-  background: rgba(11, 15, 25, 0.95) !important;
+  background: rgba(8, 12, 22, 0.95) !important;
 }
 
-/* Centered Responsive Container */
+/* Main Content Container */
 .main .block-container {
   width: 100% !important;
-  max-width: 1280px !important;
+  max-width: 1300px !important;
   margin: 0 auto !important;
   padding-top: 1rem !important;
-  padding-bottom: 3rem !important;
+  padding-bottom: 3.5rem !important;
   padding-left: 1.5rem !important;
   padding-right: 1.5rem !important;
   box-sizing: border-box !important;
@@ -53,95 +53,182 @@ header[data-testid="stHeader"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  background: #0f1628;
-  border: 1px solid #1e293b;
-  border-radius: 14px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  padding: 16px 24px;
+  background: #0f172a;
+  border: 1.5px solid #1e293b;
+  border-radius: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
 }
 .brand-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 .brand-logo-sq {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-radius: 9px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+  font-size: 24px;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.5);
 }
 .brand-title-text {
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 1.55rem;
+  font-weight: 850;
   color: #ffffff;
   letter-spacing: -0.4px;
 }
 .brand-badge-pill {
-  padding: 4px 12px;
+  padding: 6px 16px;
   border-radius: 20px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: rgba(16, 185, 129, 0.15);
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: rgba(16, 185, 129, 0.18);
   color: #34d399;
-  border: 1px solid #059669;
+  border: 1.5px solid #059669;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 .dot-green {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   background-color: #10b981;
   border-radius: 50%;
-  box-shadow: 0 0 8px #10b981;
+  box-shadow: 0 0 10px #10b981;
 }
 
-/* Category & Topic Navigation Radios */
+/* =========================================================================
+   TOP NAVIGATION COMMAND DECK (ZERO GAPS, HIGH-VISIBILITY THEME)
+   ========================================================================= */
+.nav-card-container {
+  background: #0d1527 !important;
+  border: 1.5px solid #1e293b !important;
+  border-radius: 16px !important;
+  padding: 16px 20px !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.nav-section-title {
+  color: #94a3b8 !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}
+
+.nav-inner-divider {
+  height: 1px !important;
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0) 0%, rgba(51, 65, 85, 0.8) 50%, rgba(30, 41, 59, 0) 100%) !important;
+  margin: 14px 0 16px 0 !important;
+}
+
+/* Universal Dot & Radio Circle Removal across ALL browsers */
+div[data-testid="stRadio"] input[type="radio"],
+div[data-testid="stRadio"] [role="radiogroup"] label > div:first-child,
+div[data-testid="stRadio"] [role="radiogroup"] label svg,
+div[data-testid="stRadio"] [role="radiogroup"] label span:first-child:not(:last-child) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Flex distribution for Buttons, Pills & Radios */
+div[data-testid="stButtonGroup"],
 div[data-testid="stRadio"] > div {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: wrap !important;
-  gap: 8px !important;
+  gap: 12px !important;
+  width: 100% !important;
+  align-items: center !important;
 }
+
+/* Base High-Contrast Navigation Pill / Tab */
+div[data-testid="stButtonGroup"] button,
 div[data-testid="stRadio"] label {
-  background: #0f1628 !important;
-  border: 1px solid #1e293b !important;
-  border-radius: 9px !important;
-  padding: 8px 14px !important;
-  color: #94a3b8 !important;
-  font-weight: 600 !important;
-  font-size: 0.88rem !important;
-  cursor: pointer;
-  transition: all 0.15s ease-in-out;
-}
-div[data-testid="stRadio"] label:hover {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: #131f36 !important;
+  border: 1.5px solid #2a3d60 !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
   color: #f1f5f9 !important;
-  border-color: #334155 !important;
+  font-size: 1.15rem !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.2px !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease-in-out !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 48px !important;
 }
-div[data-testid="stRadio"] label input {
-  display: none !important;
+
+div[data-testid="stButtonGroup"] button p,
+div[data-testid="stButtonGroup"] button span,
+div[data-testid="stRadio"] label p,
+div[data-testid="stRadio"] label span {
+  font-size: 1.15rem !important;
+  font-weight: 750 !important;
+  color: #f1f5f9 !important;
+  margin: 0 !important;
+  line-height: 1.3 !important;
 }
-div[data-testid="stRadio"] label > div:first-child {
-  display: none !important;
+
+/* Hover State - Vibrant Sky Blue Glow */
+div[data-testid="stButtonGroup"] button:hover,
+div[data-testid="stRadio"] label:hover {
+  background: #1c2b4a !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4) !important;
+  transform: translateY(-1px) !important;
 }
+
+/* Active State - Glowing Neon Emerald Pill (Matches Reference Image) */
+div[data-testid="stButtonGroup"] button[aria-pressed="true"],
+div[data-testid="stButtonGroup"] button[data-state="on"],
+div[data-testid="stButtonGroup"] button[data-checked="true"],
 div[data-testid="stRadio"] label:has(input:checked) {
-  background: rgba(16, 185, 129, 0.14) !important;
-  color: #34d399 !important;
-  border: 1px solid #10b981 !important;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.15) !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(5, 150, 105, 0.25) 100%) !important;
+  border: 2px solid #10b981 !important;
+  box-shadow: 0 0 22px rgba(16, 185, 129, 0.45), inset 0 0 12px rgba(16, 185, 129, 0.2) !important;
+  transform: translateY(-1px) !important;
 }
+
+div[data-testid="stButtonGroup"] button[aria-pressed="true"] p,
+div[data-testid="stButtonGroup"] button[aria-pressed="true"] span,
+div[data-testid="stRadio"] label:has(input:checked) p,
+div[data-testid="stRadio"] label:has(input:checked) span {
+  color: #34d399 !important;
+  font-weight: 850 !important;
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.6) !important;
+}
+
+/* High Visibility Headings */
+h1, h2, h3, h4, h5 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.3px !important;
+}
+h2 { font-size: 1.45rem !important; margin: 1.2rem 0 0.6rem 0 !important; }
+h3 { font-size: 1.25rem !important; margin: 1.1rem 0 0.5rem 0 !important; }
+h5 { font-size: 1.1rem !important; color: #f1f5f9 !important; margin-bottom: 0.5rem !important; }
 
 /* Node Health Cards (Matches Reference Photo 1:1) */
 .node-card {
   border-radius: 14px;
-  padding: 20px 24px;
+  padding: 22px 26px;
   background: #0f1728;
   position: relative;
   margin-bottom: 20px;
@@ -163,7 +250,7 @@ div[data-testid="stRadio"] label:has(input:checked) {
 }
 .node-name {
   color: #ffffff;
-  font-size: 1.22rem;
+  font-size: 1.25rem;
   font-weight: 750;
   margin: 0;
 }
@@ -175,7 +262,7 @@ div[data-testid="stRadio"] label:has(input:checked) {
 .status-badge {
   padding: 3px 10px;
   border-radius: 20px;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -196,51 +283,57 @@ div[data-testid="stRadio"] label:has(input:checked) {
   align-items: baseline;
   padding: 5px 0;
 }
-.stat-label { color: #94a3b8; font-size: 0.9rem; }
-.stat-val-green { color: #34d399; font-weight: 750; font-size: 1.35rem; }
-.stat-val-amber { color: #fbbf24; font-weight: 750; font-size: 1.35rem; }
-.stat-val-white { color: #f1f5f9; font-weight: 600; font-size: 0.96rem; }
+.stat-label { color: #94a3b8; font-size: 0.92rem; }
+.stat-val-green { color: #34d399; font-weight: 750; font-size: 1.38rem; }
+.stat-val-amber { color: #fbbf24; font-weight: 750; font-size: 1.38rem; }
+.stat-val-white { color: #f1f5f9; font-weight: 600; font-size: 0.98rem; }
 
-/* Page Headings */
+/* High-Impact Page Headings */
 .view-title {
-  color: #ffffff;
-  font-size: 1.35rem;
-  font-weight: 750;
-  margin: 4px 0 2px 0;
-  letter-spacing: -0.3px;
+  color: #ffffff !important;
+  font-size: 1.65rem !important;
+  font-weight: 850 !important;
+  margin: 6px 0 4px 0 !important;
+  letter-spacing: -0.4px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
 }
 .view-subtitle {
-  color: #64748b;
-  font-size: 0.88rem;
-  margin-bottom: 18px;
+  color: #94a3b8 !important;
+  font-size: 0.98rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 22px !important;
+  line-height: 1.45 !important;
 }
 
-/* Metric Tiles */
+/* Metric Tiles with Elevated Contrast */
 .metric-tile {
-  background: #0f1728;
-  border: 1px solid #1e293b;
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin-bottom: 14px;
+  background: #0f182c !important;
+  border: 1.5px solid #233554 !important;
+  border-radius: 14px !important;
+  padding: 18px 22px !important;
+  margin-bottom: 18px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28) !important;
 }
 .metric-tile-label {
-  color: #94a3b8;
-  font-size: 0.76rem;
-  font-weight: 650;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  color: #94a3b8 !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
 }
 .metric-tile-value {
-  color: #ffffff;
-  font-size: 1.55rem;
-  font-weight: 800;
-  margin-top: 3px;
+  color: #ffffff !important;
+  font-size: 1.85rem !important;
+  font-weight: 850 !important;
+  margin-top: 4px !important;
 }
 .metric-tile-sub {
-  color: #10b981;
-  font-size: 0.78rem;
-  font-weight: 600;
-  margin-top: 2px;
+  color: #34d399 !important;
+  font-size: 0.85rem !important;
+  font-weight: 650 !important;
+  margin-top: 2px !important;
 }
 
 div[data-testid="stDataFrame"] {
@@ -251,17 +344,15 @@ div[data-testid="stDataFrame"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SESSION STATE INITIALIZATION ----------
+# ---------- SESSION STATE ----------
 if "applied_indexes" not in st.session_state:
     st.session_state.applied_indexes = set()
 if "query_optimized" not in st.session_state:
     st.session_state.query_optimized = False
 if "shards_balanced" not in st.session_state:
     st.session_state.shards_balanced = False
-if "top_category" not in st.session_state:
-    st.session_state.top_category = "🎓 Academic Intelligence"
 
-# Load 250+ Student Records & Analytics
+# Load 250+ Students & Academic Records
 from analytics.student_analysis import get_student_performance, get_student_summary
 from analytics.course_analysis import get_course_outcomes
 from analytics.activity_analysis import get_activity_data
@@ -285,7 +376,7 @@ st.markdown("""
     <div class="brand-logo-sq">🎓</div>
     <div>
       <div class="brand-title-text">EduVault & DataVault Platform</div>
-      <div style="color:#64748b; font-size:0.8rem;">Academic Analytics • Replication • Sharding • Query Optimization</div>
+      <div style="color:#64748b; font-size:0.82rem;">Academic Intelligence • Query Optimization • High Availability Replication • Sharding</div>
     </div>
   </div>
   <div class="brand-badge-pill">
@@ -295,45 +386,76 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- TOP NAVIGATION (SHIFTED TO TOP) ----------
-col_cat, col_nav = st.columns([1.1, 3.2])
+# ---------- TOP NAVIGATION COMMAND DECK (ZERO GAPS, HIGH-VISIBILITY THEME) ----------
+st.markdown('<div class="nav-card-container">', unsafe_allow_html=True)
 
-with col_cat:
-    selected_category = st.radio(
-        "Platform Section",
-        ["🎓 Academic Intelligence", "🗄️ Database Operations"],
-        horizontal=True,
-        label_visibility="collapsed"
+# 1. SECTION SWITCHER
+st.markdown('<div class="nav-section-title">PLATFORM ENGINE</div>', unsafe_allow_html=True)
+section_choices = ["🎓 Academic Intelligence", "🗄️ Database Operations"]
+if "selected_platform_section" not in st.session_state:
+    st.session_state.selected_platform_section = section_choices[0]
+
+picked_section = st.pills(
+    "Platform Section",
+    options=section_choices,
+    default=st.session_state.selected_platform_section,
+    selection_mode="single",
+    label_visibility="collapsed",
+    key="pill_platform_section"
+)
+if picked_section:
+    st.session_state.selected_platform_section = picked_section
+selected_category = st.session_state.selected_platform_section
+
+st.markdown('<div class="nav-inner-divider"></div>', unsafe_allow_html=True)
+
+# 2. TOPIC SWITCHER (SEAMLESSLY FILLS FULL WIDTH, ZERO VOID)
+st.markdown('<div class="nav-section-title">ACTIVE WORKSPACE & TOPICS</div>', unsafe_allow_html=True)
+if selected_category == "🎓 Academic Intelligence":
+    academic_topics = [
+        "📊 Overview",
+        "📈 Student Performance",
+        "📚 Course Outcomes",
+        "⏱️ Learning Activity",
+        "🔍 Student Explorer"
+    ]
+    if "selected_academic_topic" not in st.session_state or st.session_state.selected_academic_topic not in academic_topics:
+        st.session_state.selected_academic_topic = academic_topics[0]
+
+    picked_topic = st.pills(
+        "Academic Topics",
+        options=academic_topics,
+        default=st.session_state.selected_academic_topic,
+        selection_mode="single",
+        label_visibility="collapsed",
+        key="pill_academic_topics"
     )
+    if picked_topic:
+        st.session_state.selected_academic_topic = picked_topic
+    nav_topic = st.session_state.selected_academic_topic
+else:
+    db_topics = [
+        "⚡ Slow Queries",
+        "⏱ Replication Health",
+        "📦 Shard Balance",
+        "💡 Index Advisor"
+    ]
+    if "selected_db_topic" not in st.session_state or st.session_state.selected_db_topic not in db_topics:
+        st.session_state.selected_db_topic = db_topics[0]
 
-with col_nav:
-    if selected_category == "🎓 Academic Intelligence":
-        nav_topic = st.radio(
-            "Academic Topics",
-            [
-                "📊 Overview",
-                "📈 Student Performance",
-                "📚 Course Outcomes",
-                "⏱️ Learning Activity",
-                "🔍 Student Explorer"
-            ],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-    else:
-        nav_topic = st.radio(
-            "Database Topics",
-            [
-                "⚡ Slow Queries",
-                "⏱ Replication Health",
-                "📦 Shard Balance",
-                "💡 Index Advisor"
-            ],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
+    picked_topic = st.pills(
+        "Database Topics",
+        options=db_topics,
+        default=st.session_state.selected_db_topic,
+        selection_mode="single",
+        label_visibility="collapsed",
+        key="pill_db_topics"
+    )
+    if picked_topic:
+        st.session_state.selected_db_topic = picked_topic
+    nav_topic = st.session_state.selected_db_topic
 
-st.markdown("<hr style='border:none; border-top:1px solid #1e293b; margin:12px 0 20px 0;'>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ==============================================================================
@@ -609,15 +731,6 @@ elif nav_topic == "⚡ Slow Queries":
               <div class="stat-row"><span class="stat-label">Rows Scanned</span><span class="stat-val-white">100,000 rows</span></div>
             </div>
             """, unsafe_allow_html=True)
-            st.code("""
--- Execution Plan (Unindexed)
-Seq Scan on activity_logs
-  Filter: ((student_id = 42) AND (activity_type = 'Video Watched'))
-  Rows Removed by Filter: 99988
-  Buffers: shared hit=124 read=1890
-  Execution Time: 342.503 ms
-            """, language="sql")
-
         with col_a:
             st.markdown("""
             <div class="node-card card-healthy">
@@ -631,17 +744,6 @@ Seq Scan on activity_logs
               <div class="stat-row"><span class="stat-label">Rows Scanned</span><span class="stat-val-white">12 matching rows</span></div>
             </div>
             """, unsafe_allow_html=True)
-            st.code("""
--- Applied Composite Index
-CREATE INDEX CONCURRENTLY idx_activity_student_type 
-ON activity_logs (student_id, activity_type);
-
--- Execution Plan (Optimized)
-Index Scan using idx_activity_student_type on activity_logs
-  Index Cond: ((student_id = 42) AND (activity_type = 'Video Watched'))
-  Buffers: shared hit=4
-  Execution Time: 0.824 ms
-            """, language="sql")
 
 
 # --- 7. REPLICATION HEALTH (MATCHES PHOTO 100%) ---
