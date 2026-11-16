@@ -308,6 +308,23 @@ h5 { font-size: 1.1rem !important; color: #f1f5f9 !important; margin-bottom: 0.5
 }
 
 /* Metric Tiles with Elevated Contrast */
+.top-brand-bar {
+  background: radial-gradient(ellipse at 10% 0%, rgba(16,185,129,0.10), transparent 52%), #0f172a !important;
+  border: 1px solid rgba(71, 85, 105, 0.58) !important;
+}
+.nav-card-container {
+  background: linear-gradient(145deg, rgba(17,29,50,0.98), rgba(9,16,30,0.98)) !important;
+}
+.metric-tile {
+  background: linear-gradient(145deg, #111d32, #0c1425) !important;
+  border: 1px solid #2a3d60 !important;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.metric-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.65) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.24) !important;
+}
 .metric-tile {
   background: #0f182c !important;
   border: 1.5px solid #233554 !important;
@@ -345,13 +362,6 @@ div[data-testid="stDataFrame"] {
 """, unsafe_allow_html=True)
 
 # ---------- SESSION STATE ----------
-if "applied_indexes" not in st.session_state:
-    st.session_state.applied_indexes = set()
-if "query_optimized" not in st.session_state:
-    st.session_state.query_optimized = False
-if "shards_balanced" not in st.session_state:
-    st.session_state.shards_balanced = False
-
 # ---------- LIVE CONNECTION GATE & DATA LOAD ----------
 import os
 from database.telemetry import get_database_health
@@ -409,18 +419,22 @@ for col in ["average_marks", "students_enrolled", "highest_marks", "lowest_marks
         courses_df[col] = pd.to_numeric(courses_df[col], errors="coerce")
 
 # ---------- TOP BRANDING BAR ----------
-st.markdown("""
+active_students = int(summary_df["student_id"].nunique()) if "student_id" in summary_df.columns else len(summary_df)
+all_live = all(db_health.get(n, {}).get("connected") for n in ("PostgreSQL", "MongoDB"))
+status_text = "LIVE DATABASES" if all_live else ("DEMO DATA" if demo_mode else "OFFLINE")
+status_color = "#10b981" if all_live else ("#f59e0b" if demo_mode else "#ef4444")
+st.markdown(f"""
 <div class="top-brand-bar">
   <div class="brand-left">
     <div class="brand-logo-sq">🎓</div>
     <div>
-      <div class="brand-title-text">EduVault & DataVault Platform</div>
-      <div style="color:#64748b; font-size:0.82rem;">Academic Intelligence • Query Optimization • High Availability Replication • Sharding</div>
+      <div class="brand-title-text">EduVault <span style="color:#34d399;">/</span> DataVault</div>
+      <div style="color:#94a3b8; font-size:0.86rem;">Academic Intelligence · Query Observatory · Database Reliability</div>
     </div>
   </div>
-  <div class="brand-badge-pill">
-    <div class="dot-green"></div>
-    <span>Active Cohort: <b>250 Students</b> • Cluster: <b>Healthy</b></span>
+  <div class="brand-badge-pill" style="border-color:{status_color}; color:{status_color}; background:{status_color}20;">
+    <span style="width:9px;height:9px;border-radius:50%;background:{status_color};box-shadow:0 0 12px {status_color};display:inline-block;"></span>
+    <span>{status_text} &nbsp;·&nbsp; <b>{active_students:,} students loaded</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
