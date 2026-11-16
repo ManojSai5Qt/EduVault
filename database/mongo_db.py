@@ -42,8 +42,24 @@ def timed_find(collection_name: str, filter_doc: dict | None = None,
     return docs
 
 def explain_find(collection_name: str, filter_doc: dict | None = None, limit: int = 500) -> dict:
-    return get_mongo_database().command({"explain":{"find":collection_name,
+    started = time.perf_counter()
+    result = get_mongo_database().command({"explain":{"find":collection_name,
         "filter":filter_doc or {}, "limit":limit}, "verbosity":"executionStats"})
+    with _LOCK:
+        _METRICS.append({"operation":"explain", "collection":collection_name,
+            "elapsed_ms":round((time.perf_counter()-started)*1000,3),
+            "documents":result.get("executionStats", {}).get("nReturned"),
+            "timestamp":time.time()})
+    return result
+
+def timed_count(collection_name: str, filter_doc: dict | None = None) -> int:
+    started = time.perf_counter()
+    count = get_mongo_database()[collection_name].count_documents(filter_doc or {})
+    with _LOCK:
+        _METRICS.append({"operation":"count", "collection":collection_name,
+            "elapsed_ms":round((time.perf_counter()-started)*1000,3),
+            "documents":count, "timestamp":time.time()})
+    return count
 
 def get_mongo_metrics():
     with _LOCK:
