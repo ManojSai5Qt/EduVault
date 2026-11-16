@@ -67,55 +67,37 @@ The platform provides end-to-end coverage of relational data management, NoSQL a
 
 ```text
 EduVault/
+├── app.py                         # Streamlit dashboard entry point
+├── requirements.txt               # Python dependencies
+├── README.md                      # Main project guide
+├── .env.example                   # Local database configuration template
+├── .devcontainer/                 # VS Code Dev Container settings
 │
-├── app.py                             # Flagship Streamlit Web Application
-├── requirements.txt                   # Project Python dependencies
-├── README.md                          # Platform documentation
-├── .env.example                       # Environment configuration template
+├── analytics/                     # Student, course and activity analytics
+├── database/                      # PostgreSQL, MongoDB and sample-data helpers
+├── concurrency/                   # ACID, isolation, locks, MVCC and 2PC modules
+├── replication/                   # Replication patterns and sharding modules
 │
-├── analytics/                         # Academic Analytics layer
-│   ├── student_analysis.py            # Student performance & cohort summaries
-│   ├── course_analysis.py             # Course outcomes & grade distributions
-│   └── activity_analysis.py           # MongoDB engagement logs
+├── postgresql/
+│   ├── EduVault_backup.sql         # Full PostgreSQL backup: DDL + table data
+│   ├── setup/                     # Restore helper
+│   ├── concurrency/               # SQL examples for Module 4
+│   └── replication/                # SQL examples for Module 5
 │
-├── concurrency/                       # Module 4: Transactions & Concurrency
-│   ├── acid_engine.py                 # ACID simulation engine & atomic rollback
-│   ├── isolation_simulator.py         # Isolation levels & anomaly simulator
-│   ├── mvcc_inspector.py              # PostgreSQL MVCC tuple visualizer & VACUUM
-│   ├── locks_deadlock.py              # Row/table/advisory lock & deadlock engine
-│   ├── two_phase_commit.py            # Distributed 2PC coordinator simulation
-│   └── concurrency_control.py         # Optimistic vs Pessimistic race engine
+├── mongodb/
+│   ├── data/                       # JSON documents for MongoDB import
+│   └── setup/                      # MongoDB import script
 │
-├── replication/                       # Module 5: Replication & Sharding
-│   ├── replication_patterns.py        # Topologies, Sync/Async, & Quorum calculator
-│   ├── pg_replication.py              # Streaming & Logical replication manager
-│   └── sharding_engine.py             # Hash/Range/List sharding & query router
+├── scripts/
+│   ├── run_app.ps1                 # Portable Windows launcher
+│   ├── data/                       # Optional demo-data seeder
+│   └── diagnostics/                # Database inspection utilities
 │
-├── database/                          # Connection & Storage layer
-│   ├── postgres_db.py                 # PostgreSQL connection & query helper
-│   ├── mongo_db.py                    # MongoDB database client
-│   └── sample_data.py                 # Resilient fallback demo dataset
-│
-├── postgresql/                        # PostgreSQL SQL Reference Repository
-│   ├── EduVault_backup.sql            # Master database backup
-│   ├── concurrency/
-│   │   ├── 01_acid_transactions.sql
-│   │   ├── 02_isolation_levels_anomalies.sql
-│   │   ├── 03_mvcc_internals.sql
-│   │   ├── 04_locks_and_deadlocks.sql
-│   │   ├── 05_two_phase_commit_2pc.sql
-│   │   └── 06_optimistic_vs_pessimistic.sql
-│   └── replication/
-│       ├── 07_streaming_replication_setup.sql
-│       ├── 08_logical_replication_setup.sql
-│       └── 09_sharding_partitioning.sql
-│
-└── docs/                              # Detailed Technical Specifications
-    ├── MODULE_4_TRANSACTIONS_AND_CONCURRENCY.md
-    └── MODULE_5_REPLICATION_AND_SHARDING.md
+└── docs/                          # Technical documentation
 ```
 
----
+**Where are the table creation queries?**  
+Open `postgresql/EduVault_backup.sql`. It is the full PostgreSQL dump and contains the `CREATE TABLE public...` definitions, sequence definitions, constraints, indexes and the table data. For example, search in that file for `CREATE TABLE public.students`, `CREATE TABLE public.courses`, or `CREATE TABLE public.departments`. See [postgresql/README.md](postgresql/README.md) for a quick guide.
 
 ## Quick Start & Running the Web App
 
@@ -132,66 +114,11 @@ python -m streamlit run app.py
 ```
 
 ### 2. Dual Operation Mode
-- **Live Database Mode**: When PostgreSQL and MongoDB connection settings are provided, the app queries the configured database servers.
-- **Demo Mode**: When no complete database configuration is present, the hosted app opens with clearly labelled synthetic records so the dashboard remains usable. Demo metrics are not presented as live database telemetry.
-- **Strict Live Mode**: Set `EDUVAULT_DEMO_MODE=false` to require both real database connections and stop visibly if either is unavailable.
+- **Live Database Mode**: When local PostgreSQL and MongoDB credentials are provided in `.env`, the app queries the active databases.
+- **Interactive Simulation Mode**: If PostgreSQL or MongoDB is offline, EduVault seamlessly falls back to interactive simulated engines and pre-loaded sample datasets without crashing.
 
 ---
 
 ## Testing & Verification
 
 All modules have been developed with self-contained simulators, verified against PostgreSQL 14–18 specifications, and packaged with reproducible interactive demonstrations in the Streamlit application.
-
----
-
-## Live Database Mode & Query Observatory
-
-The dashboard checks PostgreSQL and MongoDB connections at startup. If either connection is unavailable, live mode stops with a visible connection error instead of silently presenting sample data. To intentionally use synthetic datasets for a presentation, set `EDUVAULT_DEMO_MODE=true`; the UI keeps that mode clearly labeled.
-
-### Runtime configuration
-Copy `.env.example` to `.env` and configure either `DATABASE_URL` or the individual PostgreSQL host, port, database, user, and password values. Configure `MONGO_URI` and `MONGO_DB` as well. Keep `.env` out of Git.
-
-### Query observability
-- PostgreSQL application SELECT/WITH queries are run in read-only transactions with a 10-second statement timeout.
-- Query duration and returned row counts are recorded in a bounded in-memory metric buffer.
-- PostgreSQL connections use a thread-safe psycopg2 connection pool when psycopg2 is installed.
-- The Slow Queries screen shows measured application query timings, optional `pg_stat_statements` workload history, and actual PostgreSQL JSON execution plans.
-- `EXPLAIN ANALYZE` is opt-in because it executes the SELECT statement.
-- MongoDB find, count, and explain operations report measured latency and execution statistics.
-- The Index Advisor reads real table scan counters and index definitions. Index creation requires explicit operator selection and confirmation, validates column names, uses `CREATE INDEX CONCURRENTLY`, and refreshes planner statistics with `ANALYZE`.
-
-### Replication and sharding visibility
-- Primary-side replication status is read from `pg_stat_replication`.
-- Standby-side WAL receiver status is read from `pg_stat_wal_receiver`.
-- PostgreSQL partition metadata is read from system catalogs.
-- MongoDB topology is inspected through the server `hello` response; shard details are queried only through `mongos`.
-- No configured replica or shard is shown as healthy by default. Empty catalog results are reported as not configured/not found.
-- The dashboard does not automatically perform failover or production shard migrations/rebalancing.
-
-### PostgreSQL server workload statistics
-A database administrator can enable `pg_stat_statements` in `shared_preload_libraries`, restart PostgreSQL, then run:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-```
-
-The dashboard shows an explanatory message when the extension is unavailable or the role lacks access.
-
-See [Live Database Observability](docs/LIVE_DATABASE_OBSERVABILITY.md) for details and limitations.
-
-## Deploying on Streamlit Community Cloud
-
-The app reads root-level keys from the Streamlit **Manage app → Settings → Secrets** panel. Add hosted PostgreSQL and MongoDB connection URLs there; never use `localhost` for remote databases because that points to the Streamlit container itself.
-
-Example Secrets TOML (replace every placeholder with the values from your database providers):
-
-```toml
-DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
-MONGO_URI = "mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority"
-MONGO_DB = "eduvault_mongo"
-EDUVAULT_DEMO_MODE = "false"
-```
-
-For a first deployment without hosted databases, omit the connection keys and the demo setting: EduVault opens with clearly labelled demo data. To explicitly control the mode, set `EDUVAULT_DEMO_MODE = "true"` for demo data or `"false"` to require live connections. Once connected, load the EduVault PostgreSQL schema/data and populate the MongoDB `activity_logs` collection before using the live academic analytics.
-
-Streamlit's Secrets panel keeps these credentials outside the Git repository. See the [Streamlit Community Cloud secrets guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
