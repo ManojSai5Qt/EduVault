@@ -77,7 +77,7 @@ def _release_postgres_connection(conn) -> None:
         try:
             _PG_POOL.putconn(conn, close=True)
         except Exception:
-            _release_postgres_connection(conn)
+            conn.close()
 
 def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFrame:
     """Execute an application query and record actual client-side elapsed time."""
