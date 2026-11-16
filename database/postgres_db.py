@@ -80,17 +80,31 @@ def _release_postgres_connection(conn) -> None:
             conn.close()
 
 def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFrame:
-    """Execute an application query and record actual client-side elapsed time."""
-    started, conn = time.perf_counter(), None
+    """Execute one read-only application query and record elapsed time and returned rows."""
+    if not re.match(r"^\s*(SELECT|WITH)\b", query, re.IGNORECASE):
+        raise ValueError("fetch_dataframe accepts SELECT/WITH statements only.")
+    started, conn, cur = time.perf_counter(), None, None
     try:
         conn = get_postgres_connection()
-        frame = pd.read_sql_query(query, conn, params=params)
+        conn.autocommit = False
+        cur = conn.cursor()
+        cur.execute("SET TRANSACTION READ ONLY")
+        cur.execute("SET LOCAL statement_timeout = '10s'")
+        cur.execute(query, params)
+        columns = [item[0] for item in cur.description] if cur.description else []
+        rows = cur.fetchall() if columns else []
+        frame = pd.DataFrame(rows, columns=columns)
+        conn.rollback()
         _record(query, (time.perf_counter()-started)*1000, len(frame), True)
         return frame
     except Exception as exc:
+        if conn is not None:
+            conn.rollback()
         _record(query, (time.perf_counter()-started)*1000, None, False, str(exc)[:300])
         raise
     finally:
+        if cur is not None:
+            cur.close()
         if conn is not None:
             _release_postgres_connection(conn)
 
