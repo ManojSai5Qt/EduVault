@@ -140,3 +140,40 @@ python -m streamlit run app.py
 ## Testing & Verification
 
 All modules have been developed with self-contained simulators, verified against PostgreSQL 14–18 specifications, and packaged with reproducible interactive demonstrations in the Streamlit application.
+
+---
+
+## Live Database Mode & Query Observatory
+
+The dashboard checks PostgreSQL and MongoDB connections at startup. If either connection is unavailable, live mode stops with a visible connection error instead of silently presenting sample data. To intentionally use synthetic datasets for a presentation, set `EDUVAULT_DEMO_MODE=true`; the UI keeps that mode clearly labeled.
+
+### Runtime configuration
+Copy `.env.example` to `.env` and configure either `DATABASE_URL` or the individual PostgreSQL host, port, database, user, and password values. Configure `MONGO_URI` and `MONGO_DB` as well. Keep `.env` out of Git.
+
+### Query observability
+- PostgreSQL application SELECT/WITH queries are run in read-only transactions with a 10-second statement timeout.
+- Query duration and returned row counts are recorded in a bounded in-memory metric buffer.
+- PostgreSQL connections use a thread-safe psycopg2 connection pool when psycopg2 is installed.
+- The Slow Queries screen shows measured application query timings, optional `pg_stat_statements` workload history, and actual PostgreSQL JSON execution plans.
+- `EXPLAIN ANALYZE` is opt-in because it executes the SELECT statement.
+- MongoDB find, count, and explain operations report measured latency and execution statistics.
+- The Index Advisor reads real table scan counters and index definitions. Index creation requires explicit operator selection and confirmation, validates column names, uses `CREATE INDEX CONCURRENTLY`, and refreshes planner statistics with `ANALYZE`.
+
+### Replication and sharding visibility
+- Primary-side replication status is read from `pg_stat_replication`.
+- Standby-side WAL receiver status is read from `pg_stat_wal_receiver`.
+- PostgreSQL partition metadata is read from system catalogs.
+- MongoDB topology is inspected through the server `hello` response; shard details are queried only through `mongos`.
+- No configured replica or shard is shown as healthy by default. Empty catalog results are reported as not configured/not found.
+- The dashboard does not automatically perform failover or production shard migrations/rebalancing.
+
+### PostgreSQL server workload statistics
+A database administrator can enable `pg_stat_statements` in `shared_preload_libraries`, restart PostgreSQL, then run:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+```
+
+The dashboard shows an explanatory message when the extension is unavailable or the role lacks access.
+
+See [Live Database Observability](docs/LIVE_DATABASE_OBSERVABILITY.md) for details and limitations.
