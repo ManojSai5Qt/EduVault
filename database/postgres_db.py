@@ -21,30 +21,63 @@ def _record(sql: str, elapsed_ms: float, rows: int | None, ok: bool, error: str 
         _METRICS.append({"query": normalized, "elapsed_ms": round(elapsed_ms, 3), "rows": rows,
                          "success": ok, "error": error, "timestamp": time.time()})
 
+_PG_POOL = None
+_PG_POOL_LOCK = Lock()
+
 def get_postgres_connection():
-    """Open a configured PostgreSQL connection. No silent fallback is performed."""
+    """Borrow a connection from a thread-safe psycopg2 pool (or psycopg fallback)."""
+    global _PG_POOL
     dsn = os.getenv("DATABASE_URL")
     try:
         import psycopg2
-        if dsn:
-            return psycopg2.connect(dsn, connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
-                                    application_name="EduVault")
-        return psycopg2.connect(host=os.getenv("POSTGRES_HOST", "localhost"),
-            port=int(os.getenv("POSTGRES_PORT", "5432")), dbname=os.getenv("POSTGRES_DB", "eduvault"),
-            user=os.getenv("POSTGRES_USER", "postgres"), password=os.getenv("POSTGRES_PASSWORD", ""),
-            connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")), application_name="EduVault")
+        from psycopg2.pool import ThreadedConnectionPool
     except ImportError:
         try:
             import psycopg
         except ImportError as exc:
             raise RuntimeError("Install psycopg2-binary or psycopg to use PostgreSQL.") from exc
+        kwargs = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
+                  "application_name": "EduVault"}
         if dsn:
-            return psycopg.connect(dsn, connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
-                                   application_name="EduVault")
+            return psycopg.connect(dsn, **kwargs)
         return psycopg.connect(host=os.getenv("POSTGRES_HOST", "localhost"),
             port=int(os.getenv("POSTGRES_PORT", "5432")), dbname=os.getenv("POSTGRES_DB", "eduvault"),
-            user=os.getenv("POSTGRES_USER", "postgres"), password=os.getenv("POSTGRES_PASSWORD", ""),
-            connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")), application_name="EduVault")
+            user=os.getenv("POSTGRES_USER", "postgres"), password=os.getenv("POSTGRES_PASSWORD", ""), **kwargs)
+
+    kwargs = {"connect_timeout": int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
+              "application_name": "EduVault"}
+    if dsn:
+        kwargs["dsn"] = dsn
+    else:
+        kwargs.update(host=os.getenv("POSTGRES_HOST", "localhost"),
+            port=int(os.getenv("POSTGRES_PORT", "5432")), dbname=os.getenv("POSTGRES_DB", "eduvault"),
+            user=os.getenv("POSTGRES_USER", "postgres"), password=os.getenv("POSTGRES_PASSWORD", ""))
+    with _PG_POOL_LOCK:
+        if _PG_POOL is None:
+            _PG_POOL = ThreadedConnectionPool(
+                minconn=1, maxconn=max(2, int(os.getenv("POSTGRES_POOL_MAX", "10"))), **kwargs
+            )
+        pool = _PG_POOL
+    return pool.getconn()
+
+def conn.close() -> None:
+    """Return pooled connections in a clean transaction state."""
+    if conn is None:
+        return
+    if _PG_POOL is None:
+        conn.close()
+        return
+    try:
+        if not conn.closed:
+            if conn.autocommit:
+                conn.autocommit = False
+            conn.rollback()
+            _PG_POOL.putconn(conn)
+    except Exception:
+        try:
+            _PG_POOL.putconn(conn, close=True)
+        except Exception:
+            conn.close()
 
 def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFrame:
     """Execute an application query and record actual client-side elapsed time."""
@@ -68,8 +101,9 @@ def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dic
     started, conn = time.perf_counter(), None
     try:
         conn = get_postgres_connection()
-        conn.set_session(readonly=True, autocommit=False)
+        conn.autocommit = False
         cur = conn.cursor()
+        cur.execute("SET TRANSACTION READ ONLY")
         cur.execute("SET LOCAL statement_timeout = '10s'")
         cur.execute(query, params)
         columns = [d[0] for d in cur.description] if cur.description else []
