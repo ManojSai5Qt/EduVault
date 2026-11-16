@@ -84,3 +84,13 @@ def mongo_cluster_status() -> dict:
         return {"topology": "replica set", "replica_set": hello["setName"],
                 "members": hello.get("hosts", []), "primary": hello.get("primary")}
     return {"topology": "standalone", "sharding": "not detected", "message": "Connected to a standalone MongoDB server."}
+
+def timed_create_index(collection_name: str, keys: list[tuple[str, int]], name: str) -> str:
+    """Create a specifically selected MongoDB index and record the operation duration."""
+    started = time.perf_counter()
+    result = get_mongo_database()[collection_name].create_index(keys, name=name)
+    with _LOCK:
+        _METRICS.append({"operation":"create_index", "collection":collection_name,
+            "elapsed_ms":round((time.perf_counter()-started)*1000,3),
+            "index_name":result, "timestamp":time.time()})
+    return result
