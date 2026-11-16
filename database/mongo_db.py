@@ -51,3 +51,20 @@ def get_mongo_metrics():
 
 def mongo_collection_stats(collection_name: str) -> dict:
     return get_mongo_database().command("collStats", collection_name)
+
+def mongo_cluster_status() -> dict:
+    """Inspect the connected MongoDB topology; never invent shard nodes."""
+    admin = get_mongo_client().admin
+    hello = admin.command("hello")
+    if hello.get("msg") == "isdbgrid":
+        try:
+            shards = admin.command("listShards").get("shards", [])
+        except Exception as exc:
+            shards = []
+            return {"topology": "mongos", "sharding": "enabled", "shards": shards,
+                    "shard_error": str(exc)}
+        return {"topology": "mongos", "sharding": "enabled", "shards": shards}
+    if hello.get("setName"):
+        return {"topology": "replica set", "replica_set": hello["setName"],
+                "members": hello.get("hosts", []), "primary": hello.get("primary")}
+    return {"topology": "standalone", "sharding": "not detected", "message": "Connected to a standalone MongoDB server."}
