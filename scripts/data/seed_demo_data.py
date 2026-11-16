@@ -1,7 +1,22 @@
-﻿import random
+# Add the repository root to the import path so this script works
+# when launched directly from its new scripts/ subfolder.
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass
+
+import random
 from datetime import datetime, timedelta
 
-from database.postgres_db import get_postgres_connection, release_postgres_connection
+from database.postgres_db import get_postgres_connection
 from database.mongo_db import get_mongo_database
 
 # Repeatable demo data. Existing records are preserved.
@@ -130,7 +145,7 @@ except Exception:
     raise
 finally:
     cur.close()
-    release_postgres_connection(conn)
+    conn.close()
 
 # ---------- MongoDB ----------
 # Only this script's own generated documents are replaced on rerun.

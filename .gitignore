@@ -6,4 +6,3 @@ __pycache__/
 .DS_Store
 .vscode/
 .pytest_cache/
-.streamlit/secrets.toml
