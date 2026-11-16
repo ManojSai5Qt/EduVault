@@ -684,6 +684,10 @@ elif nav_topic == "🔍 Student Explorer":
     <div class="view-subtitle">Search and inspect an individual student's complete academic transcript, course marks, and digital engagement.</div>
     """, unsafe_allow_html=True)
 
+    if summary_df.empty:
+        st.info("No student records were returned by the live database.")
+        st.stop()
+
     options = summary_df[["student_id", "roll_number", "student_name", "department_name"]].copy()
     options["display"] = options["student_name"] + " (" + options["roll_number"] + ") — " + options["department_name"]
     sel_display = st.selectbox("Select or Search Student", options["display"].tolist())
@@ -914,5 +918,23 @@ elif nav_topic == "💡 Index Advisor":
                     st.error(f"Index creation failed: {exc}")
     except Exception as exc:
         st.error(f"Index catalog inspection failed: {exc}")
+
+    st.markdown("### MongoDB activity collection indexes")
+    try:
+        from database.mongo_db import get_mongo_database, explain_find
+        activity_collection = get_mongo_database()["activity_logs"]
+        st.json(activity_collection.index_information())
+        filter_doc = {"student_id": 16, "activity_type": "Video Watched"}
+        if st.button("Inspect MongoDB activity query plan"):
+            st.json(explain_find("activity_logs", filter_doc, limit=100))
+        mongo_confirm = st.checkbox("I reviewed the MongoDB workload and want to create the student/activity compound index.")
+        if st.button("Create MongoDB compound index", disabled=not mongo_confirm):
+            index_name = activity_collection.create_index(
+                [("student_id", 1), ("activity_type", 1)],
+                name="idx_activity_student_type",
+            )
+            st.success(f"MongoDB index available: {index_name}")
+    except Exception as exc:
+        st.warning(f"MongoDB index inspection is unavailable: {exc}")
 
 
