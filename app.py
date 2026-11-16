@@ -921,7 +921,7 @@ elif nav_topic == "💡 Index Advisor":
 
     st.markdown("### MongoDB activity collection indexes")
     try:
-        from database.mongo_db import get_mongo_database, explain_find
+        from database.mongo_db import get_mongo_database, explain_find, timed_create_index
         activity_collection = get_mongo_database()["activity_logs"]
         st.json(activity_collection.index_information())
         filter_doc = {"student_id": 16, "activity_type": "Video Watched"}
@@ -929,8 +929,8 @@ elif nav_topic == "💡 Index Advisor":
             st.json(explain_find("activity_logs", filter_doc, limit=100))
         mongo_confirm = st.checkbox("I reviewed the MongoDB workload and want to create the student/activity compound index.")
         if st.button("Create MongoDB compound index", disabled=not mongo_confirm):
-            index_name = activity_collection.create_index(
-                [("student_id", 1), ("activity_type", 1)],
+            index_name = timed_create_index(
+                "activity_logs", [("student_id", 1), ("activity_type", 1)],
                 name="idx_activity_student_type",
             )
             st.success(f"MongoDB index available: {index_name}")
