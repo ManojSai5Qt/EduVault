@@ -16,7 +16,7 @@ _METRICS = deque(maxlen=1000)
 _METRICS_LOCK = Lock()
 
 def _record(sql: str, elapsed_ms: float, rows: int | None, ok: bool, error: str | None = None) -> None:
-    normalized = re.sub(r"\\s+", " ", sql).strip()[:500]
+    normalized = re.sub(r"\s+", " ", sql).strip()[:500]
     with _METRICS_LOCK:
         _METRICS.append({"query": normalized, "elapsed_ms": round(elapsed_ms, 3), "rows": rows,
                          "success": ok, "error": error, "timestamp": time.time()})
@@ -63,7 +63,7 @@ def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFr
 
 def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dict[str, Any]]:
     """Run one read-only SQL statement with server-side read-only transaction guard."""
-    if not re.match(r"^\\s*(SELECT|WITH|SHOW|EXPLAIN)\\b", query, re.IGNORECASE):
+    if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.IGNORECASE):
         raise ValueError("Only read-only SQL statements are accepted.")
     started, conn = time.perf_counter(), None
     try:
@@ -88,7 +88,7 @@ def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dic
 
 def explain_query(query: str, params: tuple | dict | None = None, analyze: bool = False) -> dict:
     """Explain SELECT/WITH only. ANALYZE is opt-in because it executes the query."""
-    if not re.match(r"^\\s*(SELECT|WITH)\\b", query, re.IGNORECASE):
+    if not re.match(r"^\s*(SELECT|WITH)\b", query, re.IGNORECASE):
         raise ValueError("EXPLAIN is restricted to SELECT/WITH queries.")
     mode = "ANALYZE, BUFFERS, VERBOSE, FORMAT JSON" if analyze else "BUFFERS, VERBOSE, FORMAT JSON"
     result = execute_readonly(f"EXPLAIN ({mode}) {query}", params)
@@ -141,3 +141,29 @@ def create_index_concurrently(index_name: str, table_name: str, columns: list[st
         cur.execute(f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}" ({cols})')
     finally:
         conn.close()
+
+def get_wal_receiver_status() -> pd.DataFrame:
+    return pd.DataFrame(execute_readonly("""SELECT status, receive_start_lsn, written_lsn,
+        flushed_lsn, latest_end_lsn, latest_end_time, slot_name, sender_host, sender_port
+        FROM pg_stat_wal_receiver"""))
+
+def get_partition_status() -> pd.DataFrame:
+    return pd.DataFrame(execute_readonly("""SELECT ns.nspname AS schema_name,
+        tbl.relname AS table_name, pg_get_partkeydef(tbl.oid) AS partition_key,
+        count(child.oid) AS partition_count
+        FROM pg_partitioned_table p
+        JOIN pg_class tbl ON tbl.oid = p.partrelid
+        JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+        LEFT JOIN pg_inherits i ON i.inhparent = tbl.oid
+        LEFT JOIN pg_class child ON child.oid = i.inhrelid
+        WHERE ns.nspname NOT IN ('pg_catalog','information_schema')
+        GROUP BY ns.nspname, tbl.relname, tbl.oid
+        ORDER BY ns.nspname, tbl.relname"""))
+
+def get_table_columns(table_name: str) -> list[str]:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table_name):
+        raise ValueError("Invalid table name.")
+    rows = execute_readonly("""SELECT column_name FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = %s
+        ORDER BY ordinal_position""", (table_name,))
+    return [row["column_name"] for row in rows]
