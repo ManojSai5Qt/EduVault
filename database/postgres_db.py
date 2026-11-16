@@ -77,7 +77,7 @@ def _release_postgres_connection(conn) -> None:
         try:
             _PG_POOL.putconn(conn, close=True)
         except Exception:
-            conn.close()
+            _release_postgres_connection(conn)
 
 def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFrame:
     """Execute an application query and record actual client-side elapsed time."""
@@ -118,7 +118,7 @@ def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dic
         raise
     finally:
         if conn is not None:
-            conn.close()
+            _release_postgres_connection(conn)
 
 def explain_query(query: str, params: tuple | dict | None = None, analyze: bool = False) -> dict:
     """Explain SELECT/WITH only. ANALYZE is opt-in because it executes the query."""
@@ -174,7 +174,7 @@ def create_index_concurrently(index_name: str, table_name: str, columns: list[st
         cols = ", ".join('"' + c + '"' for c in columns)
         cur.execute(f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}" ({cols})')
     finally:
-        conn.close()
+        _release_postgres_connection(conn)
 
 def get_wal_receiver_status() -> pd.DataFrame:
     return pd.DataFrame(execute_readonly("""SELECT status, receive_start_lsn, written_lsn,
