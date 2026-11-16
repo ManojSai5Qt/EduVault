@@ -364,6 +364,12 @@ div[data-testid="stDataFrame"] {
 # ---------- SESSION STATE ----------
 # ---------- LIVE CONNECTION GATE & DATA LOAD ----------
 import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from database.telemetry import get_database_health
 
 demo_mode = os.getenv("EDUVAULT_DEMO_MODE", "false").lower() == "true"
