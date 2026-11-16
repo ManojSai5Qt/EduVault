@@ -383,7 +383,7 @@ for col, name in [(h1, "PostgreSQL"), (h2, "MongoDB")]:
         if item.get("connected"):
             col.success(f"● {name} connected")
             if name == "PostgreSQL":
-                col.caption(f"Database: {item.get('database')} · Role: {'replica' if item.get('is_replica') else 'primary/standalone'}")
+                col.caption(f"Database: {item.get('database')} · {'Standby' if item.get('is_replica') else 'Primary/standalone'} · Round trip: {item.get('latency_ms')} ms")
             else:
                 col.caption(f"Database: {item.get('database')} · Ping: {item.get('latency_ms')} ms")
         else:
@@ -755,6 +755,14 @@ elif nav_topic == "⚡ Slow Queries":
     if local_metrics.empty:
         st.info("No query samples have been collected in this Streamlit process yet.")
     else:
+        recent_metrics = local_metrics.sort_values("timestamp", ascending=True).tail(50).copy()
+        recent_metrics["sample"] = range(1, len(recent_metrics) + 1)
+        latency_chart = alt.Chart(recent_metrics).mark_line(point=True, strokeWidth=2.5).encode(
+            x=alt.X("sample:Q", title="Recent query sample"),
+            y=alt.Y("elapsed_ms:Q", title="Measured client latency (ms)"),
+            tooltip=["sample", "elapsed_ms", "rows", "success", "query"]
+        ).properties(height=240, title="Recent application query latency")
+        st.altair_chart(latency_chart, use_container_width=True)
         st.dataframe(local_metrics.sort_values("timestamp", ascending=False), use_container_width=True, hide_index=True)
 
     st.markdown("### PostgreSQL server workload (pg_stat_statements)")
