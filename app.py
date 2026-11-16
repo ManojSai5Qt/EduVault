@@ -370,9 +370,46 @@ try:
 except ImportError:
     pass
 
+# Streamlit Community Cloud stores credentials in the app's Secrets panel.
+# Root-level TOML keys are copied into the process environment here so the
+# existing database modules can use the same configuration locally and in Cloud.
+def _load_streamlit_secrets():
+    secret_keys = (
+        "DATABASE_URL", "POSTGRES_HOST", "POSTGRES_PORT", "POSTGRES_DB",
+        "POSTGRES_USER", "POSTGRES_PASSWORD", "DB_CONNECT_TIMEOUT",
+        "POSTGRES_POOL_MAX", "MONGO_URI", "MONGO_DB",
+        "MONGO_SERVER_SELECTION_TIMEOUT_MS", "MONGO_CONNECT_TIMEOUT_MS",
+        "EDUVAULT_DEMO_MODE",
+    )
+    try:
+        secrets = st.secrets
+        for key in secret_keys:
+            if key not in os.environ and key in secrets:
+                value = secrets[key]
+                if value is not None and str(value).strip():
+                    os.environ[key] = str(value)
+    except Exception:
+        # No secrets file is normal during local development and demo deployment.
+        pass
+
+_load_streamlit_secrets()
+
 from database.telemetry import get_database_health
 
-demo_mode = os.getenv("EDUVAULT_DEMO_MODE", "false").lower() == "true"
+# A fresh Streamlit deployment with no DB secrets opens in clearly-labelled
+# demo mode instead of failing on localhost. As soon as both DB endpoints are
+# configured, live mode becomes the default. An explicit setting always wins.
+postgres_configured = bool(os.getenv("DATABASE_URL")) or all(
+    os.getenv(key) for key in ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
+)
+mongo_configured = bool(os.getenv("MONGO_URI"))
+explicit_demo_setting = os.getenv("EDUVAULT_DEMO_MODE")
+if explicit_demo_setting is None:
+    demo_mode = not (postgres_configured and mongo_configured)
+else:
+    demo_mode = explicit_demo_setting.strip().lower() == "true"
+os.environ["EDUVAULT_DEMO_MODE"] = str(demo_mode).lower()
+
 db_health = get_database_health()
 
 st.markdown("## Runtime connection status")
@@ -400,9 +437,43 @@ with h3:
         st.error("LIVE MODE BLOCKED")
         st.caption("Configure both database connections. No sample data is silently substituted.")
 
-if not all(db_health.get(n, {}).get("connected") for n in ("PostgreSQL", "MongoDB")) and not demo_mode:
-    st.info("Set PostgreSQL and MongoDB connection values in .env, then restart Streamlit. Set EDUVAULT_DEMO_MODE=true only when you intentionally want sample data.")
-    st.stop()
+all_databases_connected = all(
+    db_health.get(name, {}).get("connected") for name in ("PostgreSQL", "MongoDB")
+)
+if not all_databases_connected:
+    if demo_mode:
+        st.warning(
+            "EduVault is running with clearly labelled demo records. "
+            "Live query plans, database workload metrics, replication, and index data "
+            "will appear after both hosted databases connect."
+        )
+        with st.expander("Connect PostgreSQL and MongoDB for live mode"):
+            st.markdown(
+                "In Streamlit Community Cloud, open **Manage app → Settings → Secrets** "
+                "and add the following keys. Use database URLs from your hosted providers; "
+                "do not use localhost and do not commit real credentials to GitHub."
+            )
+            st.code(
+                'DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"\n'
+                'MONGO_URI = "mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority"\n'
+                'MONGO_DB = "eduvault_mongo"\n'
+                'EDUVAULT_DEMO_MODE = "false"',
+                language="toml",
+            )
+            st.caption(
+                "Create and populate the PostgreSQL schema and MongoDB activity_logs collection "
+                "on those hosted services before expecting live academic data."
+            )
+    else:
+        st.error(
+            "Live mode is enabled, but one or both database connections failed. "
+            "Check the host, credentials, database name, TLS settings, and provider network allowlist."
+        )
+        st.info(
+            "For Streamlit Community Cloud, update the Secrets panel under Manage app → Settings → Secrets. "
+            "For local development, update .env and restart Streamlit."
+        )
+        st.stop()
 
 from analytics.student_analysis import get_student_performance, get_student_summary
 from analytics.course_analysis import get_course_outcomes
