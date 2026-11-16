@@ -780,6 +780,22 @@ elif nav_topic == "⚡ Slow Queries":
     else:
         st.dataframe(mongo_metrics, use_container_width=True, hide_index=True)
 
+    with st.expander("Inspect a MongoDB query with executionStats"):
+        import json
+        collection_name = st.selectbox("Collection", ["activity_logs", "learning_content"])
+        filter_text = st.text_area("MongoDB filter (JSON)", value='{"student_id": 16}', height=90)
+        if st.button("Explain MongoDB find"):
+            try:
+                filter_doc = json.loads(filter_text)
+                if not isinstance(filter_doc, dict):
+                    raise ValueError("Filter must be a JSON object.")
+                from database.mongo_db import explain_find
+                explain_result = explain_find(collection_name, filter_doc, limit=500)
+                st.success("MongoDB execution statistics received from the live server.")
+                st.json(explain_result)
+            except Exception as exc:
+                st.error(f"MongoDB explain failed: {exc}")
+
 
 # --- 7. REPLICATION HEALTH ---
 elif nav_topic == "⏱ Replication Health":
