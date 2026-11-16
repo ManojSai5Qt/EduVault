@@ -1,7 +1,7 @@
 ﻿import random
 from datetime import datetime, timedelta
 
-from database.postgres_db import get_postgres_connection
+from database.postgres_db import get_postgres_connection, release_postgres_connection
 from database.mongo_db import get_mongo_database
 
 # Repeatable demo data. Existing records are preserved.
@@ -130,7 +130,7 @@ except Exception:
     raise
 finally:
     cur.close()
-    conn.close()
+    release_postgres_connection(conn)
 
 # ---------- MongoDB ----------
 # Only this script's own generated documents are replaced on rerun.

@@ -308,6 +308,23 @@ h5 { font-size: 1.1rem !important; color: #f1f5f9 !important; margin-bottom: 0.5
 }
 
 /* Metric Tiles with Elevated Contrast */
+.top-brand-bar {
+  background: radial-gradient(ellipse at 10% 0%, rgba(16,185,129,0.10), transparent 52%), #0f172a !important;
+  border: 1px solid rgba(71, 85, 105, 0.58) !important;
+}
+.nav-card-container {
+  background: linear-gradient(145deg, rgba(17,29,50,0.98), rgba(9,16,30,0.98)) !important;
+}
+.metric-tile {
+  background: linear-gradient(145deg, #111d32, #0c1425) !important;
+  border: 1px solid #2a3d60 !important;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.metric-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(45, 212, 191, 0.65) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.24) !important;
+}
 .metric-tile {
   background: #0f182c !important;
   border: 1.5px solid #233554 !important;
@@ -345,22 +362,60 @@ div[data-testid="stDataFrame"] {
 """, unsafe_allow_html=True)
 
 # ---------- SESSION STATE ----------
-if "applied_indexes" not in st.session_state:
-    st.session_state.applied_indexes = set()
-if "query_optimized" not in st.session_state:
-    st.session_state.query_optimized = False
-if "shards_balanced" not in st.session_state:
-    st.session_state.shards_balanced = False
+# ---------- LIVE CONNECTION GATE & DATA LOAD ----------
+import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-# Load 250+ Students & Academic Records
+from database.telemetry import get_database_health
+
+demo_mode = os.getenv("EDUVAULT_DEMO_MODE", "false").lower() == "true"
+db_health = get_database_health()
+
+st.markdown("## Runtime connection status")
+h1, h2, h3 = st.columns([1, 1, 1.2])
+for col, name in [(h1, "PostgreSQL"), (h2, "MongoDB")]:
+    item = db_health.get(name, {"connected": False, "error": "Health check unavailable"})
+    with col:
+        if item.get("connected"):
+            col.success(f"● {name} connected")
+            if name == "PostgreSQL":
+                col.caption(f"Database: {item.get('database')} · {'Standby' if item.get('is_replica') else 'Primary/standalone'} · Round trip: {item.get('latency_ms')} ms")
+            else:
+                col.caption(f"Database: {item.get('database')} · Ping: {item.get('latency_ms')} ms")
+        else:
+            col.error(f"● {name} disconnected")
+            col.caption(str(item.get("error", "Connection unavailable"))[:180])
+with h3:
+    if all(db_health.get(n, {}).get("connected") for n in ("PostgreSQL", "MongoDB")):
+        st.success("LIVE DATA MODE")
+        st.caption("Metrics below are read from configured database servers.")
+    elif demo_mode:
+        st.warning("DEMO MODE ENABLED")
+        st.caption("Synthetic fallback records may be displayed. Not production telemetry.")
+    else:
+        st.error("LIVE MODE BLOCKED")
+        st.caption("Configure both database connections. No sample data is silently substituted.")
+
+if not all(db_health.get(n, {}).get("connected") for n in ("PostgreSQL", "MongoDB")) and not demo_mode:
+    st.info("Set PostgreSQL and MongoDB connection values in .env, then restart Streamlit. Set EDUVAULT_DEMO_MODE=true only when you intentionally want sample data.")
+    st.stop()
+
 from analytics.student_analysis import get_student_performance, get_student_summary
 from analytics.course_analysis import get_course_outcomes
 from analytics.activity_analysis import get_activity_data
 
-summary_df = get_student_summary()
-perf_df = get_student_performance()
-courses_df = get_course_outcomes()
-activities_df = get_activity_data()
+try:
+    summary_df = get_student_summary()
+    perf_df = get_student_performance()
+    courses_df = get_course_outcomes()
+    activities_df = get_activity_data()
+except Exception as data_error:
+    st.error(f"Live analytics could not be loaded: {data_error}")
+    st.stop()
 
 for col in ["marks", "grade_point"]:
     if col in perf_df.columns:
@@ -370,18 +425,22 @@ for col in ["average_marks", "students_enrolled", "highest_marks", "lowest_marks
         courses_df[col] = pd.to_numeric(courses_df[col], errors="coerce")
 
 # ---------- TOP BRANDING BAR ----------
-st.markdown("""
+active_students = int(summary_df["student_id"].nunique()) if "student_id" in summary_df.columns else len(summary_df)
+all_live = all(db_health.get(n, {}).get("connected") for n in ("PostgreSQL", "MongoDB"))
+status_text = "LIVE DATABASES" if all_live else ("DEMO DATA" if demo_mode else "OFFLINE")
+status_color = "#10b981" if all_live else ("#f59e0b" if demo_mode else "#ef4444")
+st.markdown(f"""
 <div class="top-brand-bar">
   <div class="brand-left">
     <div class="brand-logo-sq">🎓</div>
     <div>
-      <div class="brand-title-text">EduVault & DataVault Platform</div>
-      <div style="color:#64748b; font-size:0.82rem;">Academic Intelligence • Query Optimization • High Availability Replication • Sharding</div>
+      <div class="brand-title-text">EduVault <span style="color:#34d399;">/</span> DataVault</div>
+      <div style="color:#94a3b8; font-size:0.86rem;">Academic Intelligence · Query Observatory · Database Reliability</div>
     </div>
   </div>
-  <div class="brand-badge-pill">
-    <div class="dot-green"></div>
-    <span>Active Cohort: <b>250 Students</b> • Cluster: <b>Healthy</b></span>
+  <div class="brand-badge-pill" style="border-color:{status_color}; color:{status_color}; background:{status_color}20;">
+    <span style="width:9px;height:9px;border-radius:50%;background:{status_color};box-shadow:0 0 12px {status_color};display:inline-block;"></span>
+    <span>{status_text} &nbsp;·&nbsp; <b>{active_students:,} students loaded</b></span>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -631,6 +690,10 @@ elif nav_topic == "🔍 Student Explorer":
     <div class="view-subtitle">Search and inspect an individual student's complete academic transcript, course marks, and digital engagement.</div>
     """, unsafe_allow_html=True)
 
+    if summary_df.empty:
+        st.info("No student records were returned by the live database.")
+        st.stop()
+
     options = summary_df[["student_id", "roll_number", "student_name", "department_name"]].copy()
     options["display"] = options["student_name"] + " (" + options["roll_number"] + ") — " + options["department_name"]
     sel_display = st.selectbox("Select or Search Student", options["display"].tolist())
@@ -667,240 +730,225 @@ elif nav_topic == "🔍 Student Explorer":
 # --- 6. SLOW QUERIES ---
 elif nav_topic == "⚡ Slow Queries":
     st.markdown("""
-    <div class="view-title">Slow Query Analyzer & Optimization Engine</div>
-    <div class="view-subtitle">Profile expensive queries, inspect EXPLAIN ANALYZE execution plans, and eliminate sequential table scans.</div>
+    <div class="view-title">Live Query Performance Center</div>
+    <div class="view-subtitle">Measured application query latency, PostgreSQL workload statistics, and real query plans. No estimated benchmark values are shown.</div>
     """, unsafe_allow_html=True)
 
-    sq1, sq2, sq3 = st.columns(3)
-    with sq1:
-        st.markdown("""
-        <div class="metric-tile">
-          <div class="metric-tile-label">QUERIES PROFILED</div>
-          <div class="metric-tile-value">1,842</div>
-          <div class="metric-tile-sub">Active database sessions</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with sq2:
-        st.markdown("""
-        <div class="metric-tile">
-          <div class="metric-tile-label">SLOW QUERIES (>100ms)</div>
-          <div class="metric-tile-value" style="color:#fbbf24;">14 Queries</div>
-          <div class="metric-tile-sub" style="color:#fbbf24;">Requires index optimization</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with sq3:
-        st.markdown("""
-        <div class="metric-tile">
-          <div class="metric-tile-label">OPTIMIZATION POTENTIAL</div>
-          <div class="metric-tile-value" style="color:#34d399;">99.7% Latency Drop</div>
-          <div class="metric-tile-sub">From 342ms down to 0.82ms</div>
-        </div>
-        """, unsafe_allow_html=True)
+    from database.postgres_db import get_query_metrics, get_slow_queries, explain_query
+    from database.mongo_db import get_mongo_metrics
 
-    st.markdown("##### Detected Query Bottlenecks (`pg_stat_statements`)")
-    slow_queries_data = [
-        {"Query ID": "Q-8821", "Table": "activity_logs", "SQL Query": "SELECT * FROM activity_logs WHERE student_id = 42 AND activity_type = 'Video Watched';", "Calls": 1840, "Latency": "342.5 ms", "Scan Plan": "Seq Scan (100k rows filtered)", "Severity": "⚠️ Critical"},
-        {"Query ID": "Q-4912", "Table": "grades JOIN students", "SQL Query": "SELECT s.name, g.marks FROM students s JOIN grades g ON s.id = g.student_id WHERE g.marks > 90;", "Calls": 320, "Latency": "185.0 ms", "Scan Plan": "Hash Join + Seq Scan", "Severity": "⚠️ High"},
-        {"Query ID": "Q-1049", "Table": "courses", "SQL Query": "SELECT course_code, AVG(marks) FROM grades GROUP BY course_code;", "Calls": 120, "Latency": "132.0 ms", "Scan Plan": "HashAggregate", "Severity": "ℹ️ Medium"}
-    ]
-    st.dataframe(pd.DataFrame(slow_queries_data), use_container_width=True, hide_index=True)
+    if st.button("↻ Refresh live telemetry"):
+        st.rerun()
 
-    st.markdown("---")
-    st.markdown("##### 🔬 Interactive Query Optimization Lab (EXPLAIN ANALYZE)")
-    oc1, oc2 = st.columns([3.2, 1.3])
-    with oc1:
-        st.selectbox("Target SQL Query", ["Q-8821: SELECT * FROM activity_logs WHERE student_id = 42 AND activity_type = 'Video Watched'"])
-    with oc2:
-        st.write("")
-        st.write("")
-        if st.button("🚀 Optimize with Composite Index", type="primary", use_container_width=True):
-            st.session_state.query_optimized = True
+    local_metrics = get_query_metrics()
+    mongo_metrics = pd.DataFrame(get_mongo_metrics())
+    total_calls = len(local_metrics)
+    slow_count = int((local_metrics["elapsed_ms"] >= 100).sum()) if total_calls else 0
+    avg_ms = float(local_metrics["elapsed_ms"].mean()) if total_calls else 0.0
+    q1, q2, q3, q4 = st.columns(4)
+    q1.metric("Measured app queries", f"{total_calls:,}")
+    q2.metric("Queries ≥ 100 ms", f"{slow_count:,}")
+    q3.metric("Mean client latency", f"{avg_ms:.2f} ms" if total_calls else "No samples yet")
+    q4.metric("Mongo operations measured", f"{len(mongo_metrics):,}")
 
-    if st.session_state.query_optimized:
-        col_b, col_a = st.columns(2)
-        with col_b:
-            st.markdown("""
-            <div class="node-card card-warning">
-              <div class="card-header-flex">
-                <div class="node-name">Before Optimization</div>
-                <div class="status-badge badge-warning">SEQ SCAN</div>
-              </div>
-              <div class="stat-row"><span class="stat-label">Execution Time</span><span class="stat-val-amber">342.50 ms</span></div>
-              <div class="stat-row"><span class="stat-label">Total Cost</span><span class="stat-val-white">2,845.00</span></div>
-              <div class="stat-row"><span class="stat-label">Disk IO</span><span class="stat-val-white">read=1,890 blocks</span></div>
-              <div class="stat-row"><span class="stat-label">Rows Scanned</span><span class="stat-val-white">100,000 rows</span></div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_a:
-            st.markdown("""
-            <div class="node-card card-healthy">
-              <div class="card-header-flex">
-                <div class="node-name">After Index Optimization</div>
-                <div class="status-badge badge-healthy">INDEX SCAN</div>
-              </div>
-              <div class="stat-row"><span class="stat-label">Execution Time</span><span class="stat-val-green">0.82 ms (99.7% Faster)</span></div>
-              <div class="stat-row"><span class="stat-label">Total Cost</span><span class="stat-val-white">8.42</span></div>
-              <div class="stat-row"><span class="stat-label">Disk IO</span><span class="stat-val-white">read=0 (Zero Disk Read)</span></div>
-              <div class="stat-row"><span class="stat-label">Rows Scanned</span><span class="stat-val-white">12 matching rows</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+    st.markdown("### Application query samples")
+    if local_metrics.empty:
+        st.info("No query samples have been collected in this Streamlit process yet.")
+    else:
+        recent_metrics = local_metrics.sort_values("timestamp", ascending=True).tail(50).copy()
+        recent_metrics["sample"] = range(1, len(recent_metrics) + 1)
+        latency_chart = alt.Chart(recent_metrics).mark_line(point=True, strokeWidth=2.5).encode(
+            x=alt.X("sample:Q", title="Recent query sample"),
+            y=alt.Y("elapsed_ms:Q", title="Measured client latency (ms)"),
+            tooltip=["sample", "elapsed_ms", "rows", "success", "query"]
+        ).properties(height=240, title="Recent application query latency")
+        st.altair_chart(latency_chart, use_container_width=True)
+        st.dataframe(local_metrics.sort_values("timestamp", ascending=False), use_container_width=True, hide_index=True)
+
+    st.markdown("### PostgreSQL server workload (pg_stat_statements)")
+    try:
+        server_slow = get_slow_queries(50)
+        if server_slow.empty:
+            st.info("pg_stat_statements returned no statements.")
+        else:
+            st.dataframe(server_slow, use_container_width=True, hide_index=True)
+    except Exception as exc:
+        st.warning(f"Server-level query history is unavailable: {exc}")
+        st.caption("A database administrator must enable pg_stat_statements in shared_preload_libraries, restart PostgreSQL, and run CREATE EXTENSION pg_stat_statements in this database.")
+
+    st.markdown("### Explain a real query")
+    sql_text = st.text_area(
+        "SELECT query (read-only only)",
+        value="SELECT s.student_id, s.student_name, g.marks FROM students s JOIN enrollments e ON e.student_id = s.student_id JOIN grades g ON g.enrollment_id = e.enrollment_id WHERE s.student_id = 16;",
+        height=130,
+        help="Only SELECT/WITH statements are accepted. Use parameters in application code for user-supplied values."
+    )
+    analyze = st.checkbox("Run EXPLAIN ANALYZE (executes this SELECT; use only safe, bounded queries)", value=False)
+    if st.button("Inspect actual query plan", type="primary"):
+        try:
+            plan = explain_query(sql_text, analyze=analyze)
+            st.success("Query plan retrieved from the connected PostgreSQL server.")
+            st.json(plan)
+        except Exception as exc:
+            st.error(f"Could not explain query: {exc}")
+
+    st.markdown("### MongoDB operation timings")
+    if mongo_metrics.empty:
+        st.info("No MongoDB operations have been measured in this process yet.")
+    else:
+        st.dataframe(mongo_metrics, use_container_width=True, hide_index=True)
+
+    with st.expander("Inspect a MongoDB query with executionStats"):
+        import json
+        collection_name = st.selectbox("Collection", ["activity_logs", "learning_content"])
+        filter_text = st.text_area("MongoDB filter (JSON)", value='{"student_id": 16}', height=90)
+        if st.button("Explain MongoDB find"):
+            try:
+                filter_doc = json.loads(filter_text)
+                if not isinstance(filter_doc, dict):
+                    raise ValueError("Filter must be a JSON object.")
+                from database.mongo_db import explain_find
+                explain_result = explain_find(collection_name, filter_doc, limit=500)
+                st.success("MongoDB execution statistics received from the live server.")
+                st.json(explain_result)
+            except Exception as exc:
+                st.error(f"MongoDB explain failed: {exc}")
 
 
-# --- 7. REPLICATION HEALTH (MATCHES PHOTO 100%) ---
+# --- 7. REPLICATION HEALTH ---
 elif nav_topic == "⏱ Replication Health":
-    col_card1, col_card2 = st.columns(2)
-    with col_card1:
-        st.markdown("""
-        <div class="node-card card-healthy">
-          <div class="card-header-flex">
-            <div>
-              <div class="node-name">pg-replica1</div>
-              <div class="node-client">Local client</div>
-            </div>
-            <div class="status-badge badge-healthy">HEALTHY</div>
-          </div>
-          <div class="stat-row"><span class="stat-label">Replication Lag</span><span class="stat-val-green">0.16s</span></div>
-          <div class="stat-row"><span class="stat-label">Write Lag</span><span class="stat-val-white">0.13s</span></div>
-          <div class="stat-row"><span class="stat-label">Standby State</span><span class="stat-val-white">Streaming</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_card2:
-        st.markdown("""
-        <div class="node-card card-warning">
-          <div class="card-header-flex">
-            <div>
-              <div class="node-name">pg-replica2</div>
-              <div class="node-client">Local client</div>
-            </div>
-            <div class="status-badge badge-warning">WARNING</div>
-          </div>
-          <div class="stat-row"><span class="stat-label">Replication Lag</span><span class="stat-val-amber">11.13s</span></div>
-          <div class="stat-row"><span class="stat-label">Write Lag</span><span class="stat-val-white">1.11s</span></div>
-          <div class="stat-row"><span class="stat-label">Standby State</span><span class="stat-val-white">Streaming</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-
     st.markdown("""
-    <div class="view-title">Streaming Replication Lag Over Time</div>
-    <div class="view-subtitle">Historical trends of standby node lag read from SQLite snapshots.</div>
+    <div class="view-title">Live Replication Monitor</div>
+    <div class="view-subtitle">Reads PostgreSQL replication views from the connected server. Empty results are reported as no connected standby, never as a healthy replica.</div>
     """, unsafe_allow_html=True)
 
-    time_seq = list(range(1, 26))
-    lag_rep1 = [round(0.16 + 0.06 * np.sin(i), 2) for i in time_seq]
-    lag_rep2 = [11.5, 9.8, 4.2, 7.5, 3.8, 6.9, 3.2, 7.8, 2.5, 6.2, 8.0, 3.5, 8.5, 4.1, 7.6, 3.2, 4.8, 21.0, 19.5, 16.0, 17.8, 20.5, 14.2, 18.0, 21.2]
+    from database.postgres_db import postgres_health, get_replication_status, get_wal_receiver_status
+    if st.button("↻ Refresh replication status"):
+        st.rerun()
 
-    chart_data = pd.DataFrame({
-        "Sample": time_seq * 2,
-        "Lag Seconds": lag_rep1 + lag_rep2,
-        "Replica": ["pg-replica1"] * 25 + ["pg-replica2"] * 25
-    })
+    try:
+        health = postgres_health()
+        if health.get("is_replica"):
+            st.info("This PostgreSQL server reports that it is operating as a standby.")
+            receiver = get_wal_receiver_status()
+            if receiver.empty:
+                st.warning("No active WAL receiver row was returned.")
+            else:
+                st.success("WAL receiver is reporting live streaming state.")
+                st.dataframe(receiver, use_container_width=True, hide_index=True)
+        else:
+            st.info(f"Connected to database: {health.get('database')} · This server is not in recovery.")
+            replicas = get_replication_status()
+            if replicas.empty:
+                st.warning("No standby connections are currently reported by pg_stat_replication.")
+                st.caption("Configure physical or logical replication before expecting replica telemetry.")
+            else:
+                st.success(f"{len(replicas)} standby connection(s) currently reported.")
+                st.dataframe(replicas, use_container_width=True, hide_index=True)
+    except Exception as exc:
+        st.error(f"Could not read live replication status: {exc}")
 
-    alt_chart = alt.Chart(chart_data).mark_line(interpolate="monotone", strokeWidth=2.4, point=alt.OverlayMarkDef(filled=True, size=28)).encode(
-        x=alt.X("Sample:Q", title=None, axis=alt.Axis(gridColor="#162035", labelColor="#94a3b8")),
-        y=alt.Y("Lag Seconds:Q", title="Lag Seconds", axis=alt.Axis(gridColor="#162035", labelColor="#94a3b8")),
-        color=alt.Color("Replica:N", scale=alt.Scale(domain=["pg-replica1", "pg-replica2"], range=["#2dd4bf", "#10b981"]), legend=alt.Legend(orient="top-right", labelColor="#e2e8f0", title=None))
-    ).properties(height=300, background="transparent").configure_view(strokeWidth=0)
-    st.altair_chart(alt_chart, use_container_width=True)
-
-    st.markdown("##### Standby Slot & WAL Synchronization Telemetry")
-    pg_stat_data = [
-        {"pid": 14201, "application_name": "pg-replica1", "client_addr": "10.0.1.25", "state": "streaming", "sync_state": "sync", "sent_lsn": "0/16B38D0", "write_lsn": "0/16B38D0", "flush_lsn": "0/16B38D0", "replay_lag": "00:00:00.160"},
-        {"pid": 14208, "application_name": "pg-replica2", "client_addr": "10.0.2.80", "state": "streaming", "sync_state": "async", "sent_lsn": "0/16B38D0", "write_lsn": "0/16B3898", "flush_lsn": "0/16B3898", "replay_lag": "00:00:11.130"}
-    ]
-    st.dataframe(pd.DataFrame(pg_stat_data), use_container_width=True, hide_index=True)
+    st.markdown("### What this screen measures")
+    st.write("Primary-side streaming state, client address, synchronous state, WAL positions, and reported write/flush/replay lag. These values exist only when the database is configured for replication.")
 
 
 # --- 8. SHARD BALANCE ---
 elif nav_topic == "📦 Shard Balance":
     st.markdown("""
-    <div class="view-title">Shard Distribution & Cluster Partitioning</div>
-    <div class="view-subtitle">Horizontal distribution of data chunks across database storage nodes.</div>
+    <div class="view-title">Live Partition & Shard Topology</div>
+    <div class="view-subtitle">Inspects PostgreSQL declarative partitions and the connected MongoDB topology. No placeholder shard counts or simulated rebalancing actions.</div>
     """, unsafe_allow_html=True)
 
-    s1, s2, s3 = st.columns(3)
-    balanced = st.session_state.shards_balanced
-    with s1:
-        st.markdown(f"""
-        <div class="node-card card-healthy">
-          <div class="card-header-flex"><div class="node-name">mongo-shard-1</div><div class="status-badge badge-healthy">BALANCED</div></div>
-          <div class="stat-row"><span class="stat-label">Chunks</span><span class="stat-val-green">{"3,340" if balanced else "4,120"} ({"33.4%" if balanced else "41.2%"})</span></div>
-          <div class="stat-row"><span class="stat-label">Storage Size</span><span class="stat-val-white">12.4 GB</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-    with s2:
-        st.markdown(f"""
-        <div class="node-card card-healthy">
-          <div class="card-header-flex"><div class="node-name">mongo-shard-2</div><div class="status-badge badge-healthy">BALANCED</div></div>
-          <div class="stat-row"><span class="stat-label">Chunks</span><span class="stat-val-green">{"3,330" if balanced else "3,580"} ({"33.3%" if balanced else "35.8%"})</span></div>
-          <div class="stat-row"><span class="stat-label">Storage Size</span><span class="stat-val-white">11.8 GB</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-    with s3:
-        st.markdown(f"""
-        <div class="node-card {'card-healthy' if balanced else 'card-warning'}">
-          <div class="card-header-flex"><div class="node-name">mongo-shard-3</div><div class="status-badge {'badge-healthy' if balanced else 'badge-warning'}">{"BALANCED" if balanced else "DRAINED"}</div></div>
-          <div class="stat-row"><span class="stat-label">Chunks</span><span class="{'stat-val-green' if balanced else 'stat-val-amber'}">{"3,330" if balanced else "2,300"} ({"33.3%" if balanced else "23.0%"})</span></div>
-          <div class="stat-row"><span class="stat-label">Storage Size</span><span class="stat-val-white">{"11.9 GB" if balanced else "7.6 GB"}</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+    from database.postgres_db import get_partition_status
+    from database.mongo_db import mongo_cluster_status
 
-    if st.button("⚖️ Trigger Cluster Auto-Rebalance", type="primary"):
-        st.session_state.shards_balanced = True
-        st.rerun()
+    st.markdown("### PostgreSQL table partitioning")
+    try:
+        partitions = get_partition_status()
+        if partitions.empty:
+            st.info("No declaratively partitioned PostgreSQL tables were found in the visible schemas.")
+        else:
+            st.dataframe(partitions, use_container_width=True, hide_index=True)
+    except Exception as exc:
+        st.warning(f"Partition metadata unavailable: {exc}")
 
-    st.write("")
-    st.markdown("##### Shard Query Router (Point Query vs Scatter-Gather)")
-    q_mode = st.radio("Query Pattern", ["Point Query (Direct O(1) Route using Shard Key)", "Scatter-Gather Broadcast (Queries All Shards in Parallel)"], horizontal=True)
-    if "Point" in q_mode:
-        st.json({"SQL Query": "SELECT * FROM activity_logs WHERE student_id = 105;", "Execution Strategy": "Single-Shard Direct Route (O(1))", "Target Node Contacted": "mongo-shard-2 (hash(105) % 3 = 1)", "Network Round-Trips": 1, "Latency Overhead": "0.12 ms"})
-    else:
-        st.json({"SQL Query": "SELECT * FROM activity_logs WHERE duration_minutes > 45;", "Execution Strategy": "Scatter-Gather Parallel Broadcast", "Target Nodes Contacted": ["mongo-shard-1", "mongo-shard-2", "mongo-shard-3"], "Network Round-Trips": "3 parallel RPCs + Coordinator Merge", "Latency Overhead": "14.20 ms"})
+    st.markdown("### MongoDB topology")
+    try:
+        topology = mongo_cluster_status()
+        st.json(topology)
+        if topology.get("topology") == "mongos":
+            st.success(f"MongoDB mongos reports {len(topology.get('shards', []))} shard(s).")
+        elif topology.get("topology") == "replica set":
+            st.info("MongoDB replica set detected. Replica sets provide replication, not automatic proof of sharding.")
+        else:
+            st.warning("Standalone MongoDB detected; sharding is not configured on this connection.")
+    except Exception as exc:
+        st.error(f"Could not inspect MongoDB topology: {exc}")
+
+    st.caption("EduVault reports topology only. It does not trigger production shard migration or rebalancing from the dashboard.");
 
 
 # --- 9. INDEX ADVISOR ---
 elif nav_topic == "💡 Index Advisor":
     st.markdown("""
-    <div class="view-title">Automated Database Index Advisor</div>
-    <div class="view-subtitle">Rule-based optimizer detecting high-cost sequential scans and generating optimal DDL indexes.</div>
+    <div class="view-title">Live Index Advisor</div>
+    <div class="view-subtitle">Uses actual PostgreSQL sequential-scan counters, catalog indexes, and schema metadata. Index creation requires explicit review and confirmation.</div>
     """, unsafe_allow_html=True)
 
-    ia1, ia2, ia3 = st.columns(3)
-    with ia1:
-        st.markdown("""<div class="metric-tile"><div class="metric-tile-label">MISSING INDEXES DETECTED</div><div class="metric-tile-value" style="color:#fbbf24;">3 Indexes</div><div class="metric-tile-sub">High scan cost identified</div></div>""", unsafe_allow_html=True)
-    with ia2:
-        st.markdown("""<div class="metric-tile"><div class="metric-tile-label">POTENTIAL IO REDUCTION</div><div class="metric-tile-value" style="color:#34d399;">88.4%</div><div class="metric-tile-sub">Index Scan efficiency</div></div>""", unsafe_allow_html=True)
-    with ia3:
-        st.markdown("""<div class="metric-tile"><div class="metric-tile-label">BUFFER CACHE HIT RATIO</div><div class="metric-tile-value">96.2%</div><div class="metric-tile-sub">Memory hit efficiency</div></div>""", unsafe_allow_html=True)
+    from database.postgres_db import get_table_index_stats, list_indexes, get_table_columns, create_index_concurrently
 
-    st.markdown("##### Index Recommendations & Creation")
-    idx_list = [
-        {"Table": "activity_logs", "Name": "idx_activity_student_type", "Columns": "student_id, activity_type", "Type": "B-Tree (Composite)", "Saving": "98.5%", "Reason": "Accelerates Q-8821 student activity filtering"},
-        {"Table": "grades", "Name": "idx_grades_marks", "Columns": "marks", "Type": "B-Tree", "Saving": "74.0%", "Reason": "Optimizes high-achiever scholarship filtering"},
-        {"Table": "courses", "Name": "idx_courses_name", "Columns": "course_name", "Type": "GIN (trgm)", "Saving": "85.2%", "Reason": "Speeds up course keyword searching"}
-    ]
+    if st.button("↻ Refresh index statistics"):
+        st.rerun()
 
-    for item in idx_list:
-        is_created = item["Name"] in st.session_state.applied_indexes
-        col_card, col_btn = st.columns([3.8, 1.2])
-        with col_card:
-            st.markdown(f"""
-            <div style="background:#0f1728; border:1px solid {'#10b981' if is_created else '#1e293b'}; border-radius:10px; padding:15px 18px; margin-bottom:12px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                  <b>Table: <code>{item['Table']}</code></b> &nbsp;|&nbsp; Index: <code>{item['Name']}</code> ({item['Type']})<br>
-                  <span style="color:#94a3b8; font-size:0.87rem;">Columns: <code>{item['Columns']}</code> • Estimated Cost Savings: <b style="color:#34d399;">{item['Saving']}</b></span><br>
-                  <span style="color:#64748b; font-size:0.82rem;">{item['Reason']}</span>
-                </div>
-                <div><span class="status-badge {'badge-healthy' if is_created else 'badge-warning'}">{'ACTIVE' if is_created else 'RECOMMENDED'}</span></div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with col_btn:
-            st.write("")
-            if is_created:
-                st.button("✅ Created", key=f"created_{item['Name']}", disabled=True, use_container_width=True)
-            else:
-                if st.button("⚡ Create Index", key=f"create_{item['Name']}", type="primary", use_container_width=True):
-                    st.session_state.applied_indexes.add(item["Name"])
+    try:
+        stats = get_table_index_stats(100)
+        indexes = list_indexes()
+        st.markdown("### Table scan statistics")
+        if stats.empty:
+            st.info("No user-table statistics are currently available.")
+        else:
+            st.dataframe(stats, use_container_width=True, hide_index=True)
+        st.markdown("### Existing indexes")
+        if indexes.empty:
+            st.info("No visible indexes were returned.")
+        else:
+            st.dataframe(indexes, use_container_width=True, hide_index=True)
+
+        if not stats.empty:
+            st.markdown("### Create a reviewed B-tree index")
+            table_choices = sorted(stats["table_name"].dropna().astype(str).unique().tolist())
+            table_name = st.selectbox("Table", table_choices)
+            available_columns = get_table_columns(table_name)
+            selected_columns = st.multiselect("Index columns (order matters)", available_columns)
+            default_idx = "idx_" + table_name[:35] + "_" + "_".join(selected_columns[:2])[:35] if selected_columns else ""
+            index_name = st.text_input("Index name", value=default_idx)
+            confirm = st.checkbox("I reviewed the table size and write overhead; create this index concurrently.")
+            if st.button("Create index concurrently", type="primary", disabled=not (selected_columns and index_name and confirm)):
+                try:
+                    create_index_concurrently(index_name, table_name, selected_columns)
+                    st.success(f"Index {index_name} was created or already existed.")
                     st.rerun()
+                except Exception as exc:
+                    st.error(f"Index creation failed: {exc}")
+    except Exception as exc:
+        st.error(f"Index catalog inspection failed: {exc}")
+
+    st.markdown("### MongoDB activity collection indexes")
+    try:
+        from database.mongo_db import get_mongo_database, explain_find, timed_create_index
+        activity_collection = get_mongo_database()["activity_logs"]
+        st.json(activity_collection.index_information())
+        filter_doc = {"student_id": 16, "activity_type": "Video Watched"}
+        if st.button("Inspect MongoDB activity query plan"):
+            st.json(explain_find("activity_logs", filter_doc, limit=100))
+        mongo_confirm = st.checkbox("I reviewed the MongoDB workload and want to create the student/activity compound index.")
+        if st.button("Create MongoDB compound index", disabled=not mongo_confirm):
+            index_name = timed_create_index(
+                "activity_logs", [("student_id", 1), ("activity_type", 1)],
+                name="idx_activity_student_type",
+            )
+            st.success(f"MongoDB index available: {index_name}")
+    except Exception as exc:
+        st.warning(f"MongoDB index inspection is unavailable: {exc}")
+
+
