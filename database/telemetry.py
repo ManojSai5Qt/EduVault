@@ -1,11 +1,14 @@
 """Database health and live query metric helpers."""
+import time
 import pandas as pd
 
 def get_database_health():
     result = {}
     try:
         from database.postgres_db import postgres_health
-        result["PostgreSQL"] = {"connected": True, **postgres_health()}
+        started = time.perf_counter()
+        details = postgres_health()
+        result["PostgreSQL"] = {"connected": True, "latency_ms": round((time.perf_counter() - started) * 1000, 3), **details}
     except Exception as exc:
         result["PostgreSQL"] = {"connected": False, "error": str(exc)}
     try:
