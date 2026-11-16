@@ -112,7 +112,7 @@ def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dic
     """Run one read-only SQL statement with server-side read-only transaction guard."""
     if not re.match(r"^\s*(SELECT|WITH|SHOW|EXPLAIN)\b", query, re.IGNORECASE):
         raise ValueError("Only read-only SQL statements are accepted.")
-    started, conn = time.perf_counter(), None
+    started, conn, cur = time.perf_counter(), None, None
     try:
         conn = get_postgres_connection()
         conn.autocommit = False
@@ -131,6 +131,8 @@ def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dic
         _record(query, (time.perf_counter()-started)*1000, None, False, str(exc)[:300])
         raise
     finally:
+        if cur is not None:
+            cur.close()
         if conn is not None:
             _release_postgres_connection(conn)
 
@@ -186,7 +188,7 @@ def create_index_concurrently(index_name: str, table_name: str, columns: list[st
     if not columns or any(not valid.fullmatch(c) for c in columns):
         raise ValueError("Invalid index columns.")
 
-    conn, started = None, time.perf_counter()
+    conn, cur, started = None, None, time.perf_counter()
     statement = f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}"'
     try:
         conn = get_postgres_connection()
@@ -209,6 +211,8 @@ def create_index_concurrently(index_name: str, table_name: str, columns: list[st
         _record(statement, (time.perf_counter()-started)*1000, None, False, str(exc)[:300])
         raise
     finally:
+        if cur is not None:
+            cur.close()
         if conn is not None:
             _release_postgres_connection(conn)
 
