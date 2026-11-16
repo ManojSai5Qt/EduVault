@@ -160,21 +160,36 @@ def list_indexes() -> pd.DataFrame:
         FROM pg_indexes WHERE schemaname NOT IN ('pg_catalog','information_schema')
         ORDER BY schemaname, tablename, indexname"""))
 
+def release_postgres_connection(conn) -> None:
+    """Public release function for scripts that borrow a pooled connection."""
+    _release_postgres_connection(conn)
+
 def create_index_concurrently(index_name: str, table_name: str, columns: list[str]) -> None:
-    """Create a reviewed B-tree index; identifiers are validated and DDL is never automatic."""
+    """Create a reviewed B-tree index; identifiers and actual columns are validated."""
     valid = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
     if not valid.fullmatch(index_name) or not valid.fullmatch(table_name):
         raise ValueError("Invalid index/table identifier.")
     if not columns or any(not valid.fullmatch(c) for c in columns):
         raise ValueError("Invalid index columns.")
+
     conn, started = None, time.perf_counter()
     statement = f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}"'
     try:
         conn = get_postgres_connection()
-        conn.autocommit = True
         cur = conn.cursor()
+        cur.execute(
+            """SELECT column_name FROM information_schema.columns
+               WHERE table_schema = current_schema() AND table_name = %s""",
+            (table_name,),
+        )
+        existing_columns = {row[0] for row in cur.fetchall()}
+        if not set(columns).issubset(existing_columns):
+            raise ValueError("One or more selected columns do not exist in the current schema.")
+        conn.commit()
+        conn.autocommit = True
         cols = ", ".join('"' + c + '"' for c in columns)
         cur.execute(statement + f" ({cols})")
+        cur.execute(f'ANALYZE "{table_name}"')
         _record(statement + f" ({cols})", (time.perf_counter()-started)*1000, 0, True)
     except Exception as exc:
         _record(statement, (time.perf_counter()-started)*1000, None, False, str(exc)[:300])
