@@ -28,6 +28,15 @@ def get_postgres_connection():
     """Borrow a connection from a thread-safe psycopg2 pool (or psycopg fallback)."""
     global _PG_POOL
     dsn = os.getenv("DATABASE_URL")
+    if not dsn:
+        required = ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
+        missing = [key for key in required if not os.getenv(key)]
+        if missing:
+            raise RuntimeError(
+                "PostgreSQL is not configured. Set DATABASE_URL or provide "
+                + ", ".join(required)
+                + " in Streamlit Secrets or your local .env file."
+            )
     try:
         import psycopg2
         from psycopg2.pool import ThreadedConnectionPool

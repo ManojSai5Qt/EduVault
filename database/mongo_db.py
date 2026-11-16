@@ -16,7 +16,13 @@ def get_mongo_client():
     global _CLIENT
     if _CLIENT is None:
         from pymongo import MongoClient
-        _CLIENT = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"),
+        uri = os.getenv("MONGO_URI")
+        if not uri:
+            raise RuntimeError(
+                "MongoDB is not configured. Set MONGO_URI in Streamlit Secrets "
+                "or your local .env file."
+            )
+        _CLIENT = MongoClient(uri,
             serverSelectionTimeoutMS=int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "3000")),
             connectTimeoutMS=int(os.getenv("MONGO_CONNECT_TIMEOUT_MS", "3000")),
             appname="EduVault", retryReads=True, retryWrites=True)
