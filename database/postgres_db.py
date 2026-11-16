@@ -153,7 +153,7 @@ def get_replication_status() -> pd.DataFrame:
 def get_table_index_stats(limit: int = 100) -> pd.DataFrame:
     return pd.DataFrame(execute_readonly("""SELECT schemaname, relname AS table_name, seq_scan,
         seq_tup_read, idx_scan, idx_tup_fetch, n_live_tup, n_dead_tup
-        FROM pg_stat_user_tables ORDER BY seq_tup_read DESC LIMIT %s""", (limit,)))
+        FROM pg_stat_user_tables WHERE schemaname = current_schema() ORDER BY seq_tup_read DESC LIMIT %s""", (limit,)))
 
 def list_indexes() -> pd.DataFrame:
     return pd.DataFrame(execute_readonly("""SELECT schemaname, tablename, indexname, indexdef
@@ -167,14 +167,21 @@ def create_index_concurrently(index_name: str, table_name: str, columns: list[st
         raise ValueError("Invalid index/table identifier.")
     if not columns or any(not valid.fullmatch(c) for c in columns):
         raise ValueError("Invalid index columns.")
-    conn = get_postgres_connection()
+    conn, started = None, time.perf_counter()
+    statement = f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}"'
     try:
+        conn = get_postgres_connection()
         conn.autocommit = True
         cur = conn.cursor()
         cols = ", ".join('"' + c + '"' for c in columns)
-        cur.execute(f'CREATE INDEX CONCURRENTLY IF NOT EXISTS "{index_name}" ON "{table_name}" ({cols})')
+        cur.execute(statement + f" ({cols})")
+        _record(statement + f" ({cols})", (time.perf_counter()-started)*1000, 0, True)
+    except Exception as exc:
+        _record(statement, (time.perf_counter()-started)*1000, None, False, str(exc)[:300])
+        raise
     finally:
-        _release_postgres_connection(conn)
+        if conn is not None:
+            _release_postgres_connection(conn)
 
 def get_wal_receiver_status() -> pd.DataFrame:
     return pd.DataFrame(execute_readonly("""SELECT status, receive_start_lsn, written_lsn,
