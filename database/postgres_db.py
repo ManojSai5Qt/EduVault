@@ -60,7 +60,7 @@ def get_postgres_connection():
         pool = _PG_POOL
     return pool.getconn()
 
-def conn.close() -> None:
+def _release_postgres_connection(conn) -> None:
     """Return pooled connections in a clean transaction state."""
     if conn is None:
         return
@@ -92,7 +92,7 @@ def fetch_dataframe(query: str, params: tuple | dict | None = None) -> pd.DataFr
         raise
     finally:
         if conn is not None:
-            conn.close()
+            _release_postgres_connection(conn)
 
 def execute_readonly(query: str, params: tuple | dict | None = None) -> list[dict[str, Any]]:
     """Run one read-only SQL statement with server-side read-only transaction guard."""
