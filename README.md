@@ -132,8 +132,9 @@ python -m streamlit run app.py
 ```
 
 ### 2. Dual Operation Mode
-- **Live Database Mode**: When local PostgreSQL and MongoDB credentials are provided in `.env`, the app queries the active databases.
-- **Interactive Simulation Mode**: If PostgreSQL or MongoDB is offline, EduVault seamlessly falls back to interactive simulated engines and pre-loaded sample datasets without crashing.
+- **Live Database Mode**: When PostgreSQL and MongoDB connection settings are provided, the app queries the configured database servers.
+- **Demo Mode**: When no complete database configuration is present, the hosted app opens with clearly labelled synthetic records so the dashboard remains usable. Demo metrics are not presented as live database telemetry.
+- **Strict Live Mode**: Set `EDUVAULT_DEMO_MODE=false` to require both real database connections and stop visibly if either is unavailable.
 
 ---
 
@@ -177,3 +178,20 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 The dashboard shows an explanatory message when the extension is unavailable or the role lacks access.
 
 See [Live Database Observability](docs/LIVE_DATABASE_OBSERVABILITY.md) for details and limitations.
+
+## Deploying on Streamlit Community Cloud
+
+The app reads root-level keys from the Streamlit **Manage app → Settings → Secrets** panel. Add hosted PostgreSQL and MongoDB connection URLs there; never use `localhost` for remote databases because that points to the Streamlit container itself.
+
+Example Secrets TOML (replace every placeholder with the values from your database providers):
+
+```toml
+DATABASE_URL = "postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require"
+MONGO_URI = "mongodb+srv://USER:PASSWORD@CLUSTER.mongodb.net/?retryWrites=true&w=majority"
+MONGO_DB = "eduvault_mongo"
+EDUVAULT_DEMO_MODE = "false"
+```
+
+For a first deployment without hosted databases, omit the connection keys and the demo setting: EduVault opens with clearly labelled demo data. To explicitly control the mode, set `EDUVAULT_DEMO_MODE = "true"` for demo data or `"false"` to require live connections. Once connected, load the EduVault PostgreSQL schema/data and populate the MongoDB `activity_logs` collection before using the live academic analytics.
+
+Streamlit's Secrets panel keeps these credentials outside the Git repository. See the [Streamlit Community Cloud secrets guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/secrets-management).
