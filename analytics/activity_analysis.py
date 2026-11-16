@@ -13,9 +13,9 @@ def get_activity_data():
         raise RuntimeError("MongoDB activity query failed; live MongoDB is required unless demo mode is enabled.") from exc
 
 def get_activity_count():
-    from database.mongo_db import get_mongo_database
+    from database.mongo_db import timed_count
     try:
-        return get_mongo_database()["activity_logs"].count_documents({})
+        return timed_count("activity_logs", {})
     except Exception as exc:
         if os.getenv("EDUVAULT_DEMO_MODE", "false").lower() == "true":
             return len(get_fallback_activities())
