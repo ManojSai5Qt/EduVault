@@ -6,7 +6,7 @@ def get_activity_data():
     from database.mongo_db import timed_find
     try:
         data = timed_find("activity_logs", {}, {"_id": 0}, 500)
-        return pd.DataFrame(data)
+        return pd.DataFrame(data, columns=["student_id", "course_code", "activity_type", "content_id", "duration_minutes", "completion_percentage", "timestamp"])
     except Exception as exc:
         if os.getenv("EDUVAULT_DEMO_MODE", "false").lower() == "true":
             return get_fallback_activities()
